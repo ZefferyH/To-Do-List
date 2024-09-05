@@ -191,7 +191,10 @@ class TodoList:
         for task in self.tasks:
             time_left = time_clock.time_difference(f"{task["date"]} {task["time"]}")
             formatted_time = f"{time_left["days"]}D {time_left["hours"]}h {time_left["minutes"]}min"
-            self.task_listbox.insert(tk.END, f"{task["summary"]} | Due in: {formatted_time}")
+            if time_left["in_future"]:
+                self.task_listbox.insert(tk.END, f"{task["summary"]} | Due in: {formatted_time}")
+            else:
+                self.task_listbox.insert(tk.END, f"{task["summary"]} | Past due for: {formatted_time}")
         self.priority_color()
         root.after(60000,self.update_listbox)
         self.save_tasks()
