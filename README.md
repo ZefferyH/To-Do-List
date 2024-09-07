@@ -5,7 +5,7 @@ A To-Do List app with tkinter and python
 
 Shows Due Dates
 
-Priority {Red->Orange->Green: Urgent->Medium->Low}
+Priority {Red: Urgent, Orange: Medium, Green: Low}
 
 Known Bug:
 None
