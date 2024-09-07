@@ -2,10 +2,10 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
 from tkcalendar import DateEntry
-import calendar_
-from babel.dates import format_date, parse_date, get_day_names, get_month_names
-from babel.numbers import *
-# This import is for the missing file in tkcalendar
+#import calendar_
+#from babel.dates import format_date, parse_date, get_day_names, get_month_names
+#from babel.numbers import *
+# These imports are for pyinstaller
 import time_clock
 import graphics_and_save
 HEIGHT = "800"
@@ -16,11 +16,13 @@ class TodoList:
         self.root.title("To-Do List")
         self.task = {} # Temporary task storer
         self.tasks = []
+        self.task_is_recursive = False # Temporary value
         # Listbox to display tasks
         self.task_listbox = tk.Listbox(self.root, width=160, height=16, selectmode=tk.SINGLE,font = ("Arial",20))
         self.task_listbox.pack(side = "top")
         # Double click
         self.task_listbox.bind('<Double-1>',self.open_task)
+        self.button_frame = tk.Frame(self.root)
         # Add button
         self.add_button = tk.Button(self.root, text="Add Task", command=self.new_task, height=1,font = ("Arial", 26))
         self.add_button.place(relx=1.0, rely=1.0, anchor='se')
@@ -53,7 +55,7 @@ class TodoList:
                 if self.task:
                     self.tasks[index] = self.task
                     self.update_listbox()
-                    self.task = ""
+                    self.task = {}
                     edit_window.destroy()
         def delete_task():
             response = messagebox.askyesno("Warning", "Are you sure you want to delete?")
@@ -66,6 +68,7 @@ class TodoList:
         edit_window.transient(root)
         edit_window.title("Edit Task")
         edit_window.geometry("400x350")
+        edit_window.resizable(False, False)
         graphics_and_save.center_window(edit_window,400,350)
         selected_task = self.tasks[index]
         #Summary
@@ -115,10 +118,13 @@ class TodoList:
         delete_button = tk.Button(edit_window, command = delete_task, text="Delete", font=("Arial", 12))
         delete_button.grid(row=5,column= 0, sticky = "e", padx=10, pady=10)
     def new_task(self):
-        def add_task():
+        def reset_recursive_state():
+            self.task_is_recursive = False
+            add_task_window.destroy()
+        def add_task_recursive():
             summary = summary_box.get()
             description = description_box.get("1.0", tk.END).strip()
-            priority = dropdown_box.get()
+            priority = priority_box.get()
             hour = hour_entry.get()
             if len(hour) == 1:
                 hour = "0" + hour
@@ -126,7 +132,32 @@ class TodoList:
             if len(minute) == 1:
                 minute = "0" + minute
             time = hour + ':' + minute
-            date = str(calendar.get_date())
+            date = str(date_entry.get_date())
+            self.task = {"summary": summary, "description": description, "priority": priority, "time": time,
+                         "date": date}
+            self.task_is_recursive = True
+            self.new_task()
+
+        def add_task():
+            summary = summary_box.get()
+            description = description_box.get("1.0", tk.END).strip()
+            priority = priority_box.get()
+            hour = hour_entry.get()
+            if len(hour) == 1:
+                hour = "0" + hour
+            minute = minute_entry.get()
+            if len(minute) == 1:
+                minute = "0" + minute
+            time = hour + ':' + minute
+            date = str(date_entry.get_date())
+            if self.task_is_recursive:
+
+                repeat_times = repeated_times_entry.get()
+                date_gap = date_gap_entry.get()
+                if not repeat_times.isnumeric():
+                    messagebox.showwarning("Warning", "Please enter a valid number for repetition")
+                if not date_gap.isnumeric():
+                    messagebox.showwarning("Warning", "Please enter a valid number for repetition")
             if summary == "":
                 messagebox.showwarning("Warning", "Summary cannot be blank.")
             elif priority == "":
@@ -137,15 +168,25 @@ class TodoList:
                 messagebox.showwarning("Warning", "Please enter a valid time.")
             else:
                 self.task = {"summary" : summary, "description": description, "priority": priority, "time": time, "date": date}
-                if self.task:
-                    self.tasks.append(self.task)
-                    self.update_listbox()
-                    self.task = ""
-                    add_task_window.destroy()
+                self.tasks.append(self.task)
+                self.update_listbox()
+                self.task = {}
+                add_task_window.destroy()
+                if self.task_is_recursive:
+                    repeat = int(repeat_times)
+                    for i in range(repeat):
+                        date = time_clock.get_date_after_n_days(date, int(date_gap))
+                        self.task = {"summary": summary, "description": description, "priority": priority, "time": time,
+                                     "date": date}
+                        self.tasks.append(self.task)
+                        self.update_listbox()
+                        self.task = {}
         add_task_window = tk.Toplevel(root)
         add_task_window.transient(root)
         add_task_window.title("Add Task")
         add_task_window.geometry("400x350")
+        add_task_window.resizable(False, False)
+        add_task_window.protocol("WM_DELETE_WINDOW", reset_recursive_state)
         graphics_and_save.center_window(add_task_window, 400, 350)
         # Task Summary
         summary_label = tk.Label(add_task_window, text="Task Summary:",font = ("Arial",12))
@@ -162,8 +203,8 @@ class TodoList:
         dropdown_label.grid(row=2, column=0, padx=10, pady=10, sticky="e")
 
         priority = ["Urgent", "Medium", "Low"]
-        dropdown_box = ttk.Combobox(add_task_window, values=priority, state = "readonly",font = ("Arial",12))
-        dropdown_box.grid(row=2, column=1, padx=10, pady=10)
+        priority_box = ttk.Combobox(add_task_window, values=priority, state = "readonly",font = ("Arial",12))
+        priority_box.grid(row=2, column=1, padx=10, pady=10)
 
         # Time
         hour_label = tk.Label(add_task_window, text="Time(24h):",font = ("Arial",12))
@@ -179,11 +220,42 @@ class TodoList:
         # Date
         date_label = tk.Label(add_task_window, text = "Date:", font = ("Arial",12))
         date_label.grid(row = 4, column = 0,padx = 10, pady = 10,sticky = "e")
-        calendar = DateEntry(add_task_window, date_pattern='yyyy/mm/dd')
-        calendar.grid(row = 4, column = 1,padx = 10,pady = 10)
-        # Submit button:
-        add_task_button = tk.Button(add_task_window, command = add_task, text = "Add Task", font = ("Arial",12))
-        add_task_button.grid(row = 5, column = 1, sticky = "e")
+        date_entry = DateEntry(add_task_window, date_pattern='yyyy/mm/dd')
+        date_entry.grid(row = 4, column = 1,padx = 10,pady = 10)
+        #######################################################
+        # Recursive Add Task
+        if self.task_is_recursive:
+            ## Adjust window and copy already existing inputs
+            add_task_window.geometry("400x400")
+            summary_box.insert(0, self.task["summary"])
+            description_box.insert(1.0,self.task["description"])
+            priority_box.insert(0,self.task["priority"])
+            hour_entry.insert(0,self.task["time"][0:2])
+            minute_entry.insert(0,self.task["time"][3:])
+            date_entry.set_date(self.task["date"])
+            self.task = []
+            date_gap_label_1 = tk.Label(add_task_window, text = "Repeat every",font = ("Arial",10))
+            date_gap_label_1.grid(row=5, column=0, sticky="e")
+            date_frame = tk.Frame(add_task_window)
+            date_frame.grid(row = 5, column = 1)
+            date_gap_entry = tk.Entry(date_frame,width = 4,font = ("Arial",10))
+            date_gap_label_2 = tk.Label(date_frame, text = "Day(s), repeated",font = ("Arial",10))
+            date_gap_entry.grid(row=5, column=0, sticky="e")
+            date_gap_label_2.grid(row=5, column=1, sticky="e")
+            repeated_times_entry = tk.Entry(date_frame, width = 4,font = ("Arial",10))
+            repeated_times_entry.grid(row = 5, column = 2, sticky = "e", padx=10, pady=10)
+            repeated_times_label = tk.Label(date_frame, text="times", font=("Arial", 10))
+            repeated_times_label.grid(row=5, column=3, sticky="e")
+            add_task_button = tk.Button(add_task_window, command=add_task, text="Add Task", font=("Arial", 12))
+            add_task_button.grid(row=6, column=1, sticky="e",pady = 10)
+
+        else:
+            add_task_recursive_button = tk.Button(add_task_window, command=add_task_recursive, text="Recursive Task",
+                                                  font=("Arial", 12))
+            add_task_recursive_button.grid(row=6, column=0, sticky="e")
+            add_task_button = tk.Button(add_task_window, command=add_task, text="Add Task", font=("Arial", 12))
+            add_task_button.grid(row=6, column=1, sticky="e")
+
 
     def update_listbox(self):
         self.task_listbox.delete(0, tk.END)
@@ -207,7 +279,9 @@ class TodoList:
         try:
             with open("tasks.txt", "r") as file:
                 for line in file:
-                    self.tasks.append(graphics_and_save.string_to_dict(line.strip()))
+                    task = graphics_and_save.string_to_dict(line.strip())
+                    if task:
+                        self.tasks.append(graphics_and_save.string_to_dict(line.strip()))
             self.update_listbox()
         except FileNotFoundError:
             pass

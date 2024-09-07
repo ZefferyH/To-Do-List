@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timedelta
 def is_valid_time(time_str):
 
     if len(time_str) != 5 or time_str[2] != ':':
@@ -42,3 +43,11 @@ def datetime_to_mktime(datetime_str):
     struct_time = time.strptime(datetime_str, time_format)
     timestamp = time.mktime(struct_time)
     return timestamp
+
+
+def get_date_after_n_days(start_date, n):
+    date_object = datetime.strptime(start_date, "%Y-%m-%d")
+    new_date = date_object + timedelta(days=n)
+    return new_date.strftime("%Y-%m-%d")
+
+
